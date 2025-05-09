@@ -30,9 +30,14 @@
 #define MUX2_S2_GPIO 8
 #define MUX2_S3_GPIO 9
 
+//ADC INPUTS 
+#define ADC_1 ADC1_CHANNEL_1
+#define ADC_2 ADC1_CHANNEL_6
 
-#define ADC_1 ADC1_CHANNEL_4
-#define ADC_2 ADC1_CHANNEL_9
+//Hihat switch inputs
+#define HIHATSW1 ADC1_CHANNEL_0
+#define HIHATSW2 ADC2_CHANNEL_6
+
 // ──────────────────────────────────────────────────────────────
 //  Channel‑to‑input lookup tables
 //     mux1InputMap[ch] → logical input number (1‑20)
@@ -41,6 +46,9 @@
 static const uint8_t mux1InputMap[16] = {
     6, 3, 4, 3, 4, 2, 1, 1, 10, 7, 8, 7, 8, 5, 6, 5
 };
+
+//input number mapped to the adc channel
+
 
 static const uint8_t mux2InputMap[16] = {
     14, 11, 11, 12, 12, 9, 10, 9, 18, 15, 16, 15, 16, 13, 14, 13
@@ -65,14 +73,26 @@ static const uint8_t mux2InputMap[16] = {
 // ──────────────────────────────────────────────────────────────
 struct DirectADC {
     uint8_t gpio;
-    adc1_channel_t adc;
+    union {
+        adc1_channel_t adc1;
+        adc2_channel_t adc2;
+    } adc;
 };
 
+//GPIO, ADC_Channel
+// 12 adc32 adc2_channel_1
+// 13 adc33 adc2_channel_2
+// 14 adc34 adc2_channel_3
+// 15 adc35 adc2_channel_4
+// 16 adc36 adc2_channel_5
+
+
+//input number , <gpio>TIP , <gpio>RING
 static const DirectADC directInputs[4][2] = {
-    /* 17 */ { {14, ADC1_CHANNEL_6}, {12, ADC1_CHANNEL_5} },
-    /* 18 */ { {13, ADC1_CHANNEL_7}, {MUX2_OUT_GPIO, MUX2_OUT_ADC} }, // B via MUX2 CH8
-    /* 19 */ { {16, ADC1_CHANNEL_0}, {15, ADC1_CHANNEL_3} },
-    /* 20 */ { {18, ADC1_CHANNEL_2}, {255, ADC1_CHANNEL_MAX} }
+    /* 17 */ { {14, {.adc2 = ADC2_CHANNEL_3}}, {12, {.adc2 = ADC2_CHANNEL_1}} },
+    /* 18 */ { {13, {.adc2 = ADC2_CHANNEL_2}}, {MUX2_OUT_GPIO, {.adc1 = MUX2_OUT_ADC}} },
+    /* 19 */ { {16, {.adc2 = ADC2_CHANNEL_5}}, {15, {.adc2 = ADC2_CHANNEL_4}} },
+    /* 20 */ { {18, {.adc2 = ADC2_CHANNEL_2}}, {255, {.adc2 = ADC2_CHANNEL_MAX}} }
 };
 
 #endif  // ADC_INPUT_MAP_H
