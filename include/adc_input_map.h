@@ -11,28 +11,24 @@
 // ──────────────────────────────────────────────────────────────
 //  Multiplexer outputs (wired to ESP32 ADC pins)
 // ──────────────────────────────────────────────────────────────
-#define MUX1_OUT_GPIO        2     // ADC1_CHANNEL_2
-#define MUX1_OUT_ADC         ADC1_CHANNEL_2
+#define MUX1_OUT_GPIO        7     // Physical GPIO pin for MUX1 output
+#define MUX1_OUT_ADC         ADC1_CHANNEL_1  // ADC channel for MUX1
 
-#define MUX2_OUT_GPIO        7     // ADC1_CHANNEL_6
-#define MUX2_OUT_ADC         ADC1_CHANNEL_6
+#define MUX2_OUT_GPIO        12    // Physical GPIO pin for MUX2 output
+#define MUX2_OUT_ADC         ADC1_CHANNEL_6  // ADC channel for MUX2
 
 // ──────────────────────────────────────────────────────────────
 //  MUX select lines
 // ──────────────────────────────────────────────────────────────
-#define MUX1_S0_GPIO 5
-#define MUX1_S1_GPIO 6
-#define MUX1_S2_GPIO 3
-#define MUX1_S3_GPIO 4
+#define MUX1_S0_GPIO 10
+#define MUX1_S1_GPIO 11
+#define MUX1_S2_GPIO 8
+#define MUX1_S3_GPIO 9
 
-#define MUX2_S0_GPIO 10
-#define MUX2_S1_GPIO 11
-#define MUX2_S2_GPIO 8
-#define MUX2_S3_GPIO 9
-
-//ADC INPUTS 
-#define ADC_1 ADC1_CHANNEL_1
-#define ADC_2 ADC1_CHANNEL_6
+#define MUX2_S0_GPIO 15
+#define MUX2_S1_GPIO 16
+#define MUX2_S2_GPIO 13
+#define MUX2_S3_GPIO 14
 
 //Hihat switch inputs
 #define HIHATSW1 ADC1_CHANNEL_0
@@ -55,44 +51,13 @@ static const uint8_t mux2InputMap[16] = {
 };
 
 
-
-// list of pad primary sensor ADC channels, grouped by adc_type:  ie; mux 1, 2 or direct ADC"3"
-// Array [adc_type][channel/gpio][input_num]
-//input_num is the logical input number (1‑20), added for debugging purposes
-
-
-//list of pad rim/secondary sensor ADC channels, grouped by adc_type:  ie; mux 1, 2 or direct ADC"3"
-//input_num is the logical input number (1‑20), added for debugging purposes
-//Array [adc_type][channel/gpio][input_num]
-
-  
-// ──────────────────────────────────────────────────────────────
-//  Direct ADC mappings for inputs 17‑20
-//  Each entry has up to two conductors (A & B).  If the second
-//  conductor is unused, GPIO = 255.
-// ──────────────────────────────────────────────────────────────
-struct DirectADC {
-    uint8_t gpio;
-    union {
-        adc1_channel_t adc1;
-        adc2_channel_t adc2;
-    } adc;
-};
-
-//GPIO, ADC_Channel
-// 12 adc32 adc2_channel_1
-// 13 adc33 adc2_channel_2
-// 14 adc34 adc2_channel_3
-// 15 adc35 adc2_channel_4
-// 16 adc36 adc2_channel_5
-
-
-//input number , <gpio>TIP , <gpio>RING
-static const DirectADC directInputs[4][2] = {
-    /* 17 */ { {14, {.adc2 = ADC2_CHANNEL_3}}, {12, {.adc2 = ADC2_CHANNEL_1}} },
-    /* 18 */ { {13, {.adc2 = ADC2_CHANNEL_2}}, {MUX2_OUT_GPIO, {.adc1 = MUX2_OUT_ADC}} },
-    /* 19 */ { {16, {.adc2 = ADC2_CHANNEL_5}}, {15, {.adc2 = ADC2_CHANNEL_4}} },
-    /* 20 */ { {18, {.adc2 = ADC2_CHANNEL_2}}, {255, {.adc2 = ADC2_CHANNEL_MAX}} }
-};
+// Direct ADC GPIO to channel mappings
+// Format: GPIO -> ADC Channel
+#define GPIO_12_ADC ADC2_CHANNEL_1  // 17 RING
+#define GPIO_13_ADC ADC2_CHANNEL_2  // 18 TIP
+#define GPIO_14_ADC ADC2_CHANNEL_3  // 17 TIP
+#define GPIO_15_ADC ADC2_CHANNEL_4  // 19 RING
+#define GPIO_16_ADC ADC2_CHANNEL_5  // 19 TIP
+#define GPIO_18_ADC ADC2_CHANNEL_7  // 20 input (fixed from ADC2_CHANNEL_2)
 
 #endif  // ADC_INPUT_MAP_H
