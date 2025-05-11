@@ -78,6 +78,13 @@ void setup()
     adc1_config_channel_atten(ADC1_CHANNEL_7, ADC_ATTEN_DB_11);
     Serial.println("ADC1 attenuation configured to 11dB");
 
+    // Verify ADC configuration
+    Serial.println("ADC Configuration Summary:");
+    Serial.println("- ADC1 Width: 12-bit");
+    Serial.println("- ADC1 Attenuation: 11dB (0-3.3V range)");
+    Serial.println("- ADC1 Channels configured: 0,1,2,3,5,6,7");
+    Serial.println("- Using direct ADC1 readings");
+
     // Test initial ADC readings
     Serial.println("\nInitial ADC Readings Test:");
     selectMuxChannel(1, 0);  // Select MUX1 channel 0
@@ -173,7 +180,7 @@ void loop()
 {
     // First test direct ADC reading without MUX
     Serial.println("\n=== Testing Direct ADC Reading ===");
-    int direct_val = analogRead(MUX1_OUT_GPIO);  // Try analogRead
+    int direct_val = adc1_get_raw(MUX1_OUT_ADC);  // Use adc1_get_raw directly
     Serial.printf("Direct MUX1_OUT_GPIO reading: %d (0x%03X)\n", direct_val, direct_val);
     
     // Test all MUX1 channels
@@ -188,7 +195,7 @@ void loop()
         
         // Take multiple readings to check for any activity
         for(int i = 0; i < 3; i++) {
-            int val = analogRead(MUX1_OUT_GPIO);  // Try analogRead
+            int val = adc1_get_raw(MUX1_OUT_ADC);  // Use adc1_get_raw directly
             Serial.printf("  Reading %d: Raw=%d (0x%03X)\n", i, val, val);
             if (val > 0) {
                 //short circuit - stop if value found.
