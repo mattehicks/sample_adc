@@ -70,6 +70,21 @@ void setup()
     // Configure ADC resolution and attenuation
     adc1_config_width(ADC_WIDTH_BIT_12);
     analogSetAttenuation(ADC_11db);
+
+    //     /* ADC-unit 1 width & attenuation */
+    // adc1_config_width(ADC_WIDTH_BIT_12);
+    // adc1_config_channel_atten(MUX1_OUT_ADC1, ADC_ATTEN_DB_11);
+
+    // /* ADC-unit 2 attenuation */
+    // adc2_config_channel_atten(MUX2_OUT_ADC2, ADC_ATTEN_DB_11);
+
+    // // Direct channels on ADC1
+    // adc1_config_channel_atten(ADC1_CHANNEL_0, ADC_ATTEN_DB_11);
+    // adc1_config_channel_atten(ADC1_CHANNEL_2, ADC_ATTEN_DB_11);
+    // adc1_config_channel_atten(ADC1_CHANNEL_3, ADC_ATTEN_DB_11);
+    // adc1_config_channel_atten(ADC1_CHANNEL_5, ADC_ATTEN_DB_11);
+    // adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_DB_11);
+    // adc1_config_channel_atten(ADC1_CHANNEL_7, ADC_ATTEN_DB_11);
 }
  
  //normalize the hihat input to a value between 0 and 1
@@ -148,22 +163,26 @@ void scanADC() {
     }
       setMuxChannel(ch, MUX1_S0, MUX1_S1, MUX1_S2, MUX1_S3);
       delayMicroseconds(50);
-      int val = analogRead(MUX1_ADC);
-      uint8_t inputNum = mux1InputMap[ch]; 
-      if (val > 20) {
-          Serial.printf("%u\tMUX1_CH%u\t%d\n", inputNum, ch, val);
-      }
+      int val = analogRead(MUX1_ADC);  // Using analogRead instead of adc1_get_raw
+      // handleSample(mux1InputMap[ch], raw);
+
+      // uint8_t inputNum = mux1InputMap[ch]; 
+      // if (val > 20) {
+      //     Serial.printf("%u\tMUX1_CH%u\t%d\n", inputNum, ch, val);
+      // }
   }
 
   // ---------- Scan MUX 2 ----------
   for (uint8_t ch = 0; ch < 16; ++ch) {
       setMuxChannel(ch, MUX2_S0, MUX2_S1, MUX2_S2, MUX2_S3);
       delayMicroseconds(50);                    
-      int val = analogRead(MUX2_ADC);
-      uint8_t inputNum = mux2InputMap[ch];
-      if (val > 20) {
-          Serial.printf("%u\tMUX2_CH%u\t%d\n", inputNum, ch, val);
-      }
+      int val = analogRead(MUX2_ADC);  // Using analogRead instead of adc2_get_raw
+      // handleSample(mux2InputMap[ch], raw);
+
+      // uint8_t inputNum = mux2InputMap[ch];
+      // if (val > 20) {
+      //     Serial.printf("%u\tMUX2_CH%u\t%d\n", inputNum, ch, val);
+      // }
   }
 
   // Read direct ADC pins (ADC32-37) 
