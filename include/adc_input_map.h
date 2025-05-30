@@ -43,15 +43,16 @@
 // Map MUX readings to correct ADC channels based on your mapping
 int mux1InputMap[16] = {7, 6, 5, 4, 3, 2, 1, 0, 15, 14, 13, 12, 11, 10, 9, 8};
 int mux2InputMap[16] = {23, 22, 21, 20, 19, 18, 17, 16, 31, 30, 29, 28, 27, 26, 25, 24};
+  
 //direct channels: 
 int direct_adc_mapping[6] = {12, 13, 14, 15, 16, 18};
 
 
 /**
  * Input Mapping
- * Input 1 Tip = ADC1
+ * Input 1 Tip = ADC1       
  * Input 1 Ring = ADC0
- * Input 2 = ADC2
+ * Input 2 Tip = ADC2  //hihat pdl1
  * Input 3 Tip = ADC6
  * Input 3 Ring = ADC4
  * Input 4 Tip = ADC5
@@ -86,7 +87,7 @@ int direct_adc_mapping[6] = {12, 13, 14, 15, 16, 18};
  * Input 18 Ring = ADC31
  * Input 19 Tip = ADC36
  * Input 19 Ring = ADC35
- * Input 20 Tip = ADC37
+ * Input 20 Tip = ADC37  //hihat pdl2
  */
 
 #endif  // ADC_INPUT_MAP_H

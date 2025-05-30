@@ -10,9 +10,9 @@
   
 
 CRGB leds[NUM_LEDS];
-  
-//True for high-hat mode or
-//False for trigger mode.
+
+//true for trigger mode.
+//false for high-hat mode.
 bool HH1_mode = false;
 bool HH2_mode = false;
 
@@ -85,6 +85,7 @@ void readHH1() {
   // Read the input
   int val = analogRead(MUX1_ADC);
   float normalized = normalizeADC(val);
+  
   Serial.printf("\rHH1: %d (%.2f)    ", val, normalized);
 }
 
@@ -140,32 +141,31 @@ String getInputLabel(int adcChannel) {
   }
  
 void scanADC() {   
-  // ---------- Scan MUX 1 ----------
-  for (uint8_t ch = 0; ch < 16; ++ch) {
-    //skip the hihat channels
-    if (ch == HH1channel) {
-      continue;
+int mux1_val;
+int mux2_val;
+
+  for (byte currentChannel = 0; currentChannel < 16; currentChannel++) {
+  static unsigned long scanStartTime = 0;
+ 
+    // Set channel on both MUXes
+    setMuxChannel(currentChannel, MUX1_S0, MUX1_S1, MUX1_S2, MUX1_S3);
+    setMuxChannel(currentChannel, MUX2_S0, MUX2_S1, MUX2_S2, MUX2_S3);
+
+    // Read ADC values after a tiny delay to allow MUX to settle
+    delayMicroseconds(50); 
+    mux1_val = analogRead(MUX1_ADC);
+    mux2_val = analogRead(MUX2_ADC);
+
+    if (mux1_val > 25) {
+    Serial.printf("   ADC%d: %d\n",   mux1InputMap[currentChannel] , mux1_val);
     }
-      setMuxChannel(ch, MUX1_S0, MUX1_S1, MUX1_S2, MUX1_S3);
-      delayMicroseconds(50);
-      int val = analogRead(MUX1_ADC);
-      uint8_t inputNum = mux1InputMap[ch]; 
-      if (val > 20) {
-          Serial.printf("%u\tMUX1_CH%u\t%d\n", inputNum, ch, val);
-      }
+    if (mux2_val > 25) {
+    Serial.printf("   ADC%d: %d\n",   mux2InputMap[currentChannel] , mux2_val);
+    } 
+    
+    // Move to next channel
+    // currentChannel = (currentChannel + 1) % 16;
   }
-
-  // ---------- Scan MUX 2 ----------
-  for (uint8_t ch = 0; ch < 16; ++ch) {
-      setMuxChannel(ch, MUX2_S0, MUX2_S1, MUX2_S2, MUX2_S3);
-      delayMicroseconds(50);                    
-      int val = analogRead(MUX2_ADC);
-      uint8_t inputNum = mux2InputMap[ch];
-      if (val > 20) {
-          Serial.printf("%u\tMUX2_CH%u\t%d\n", inputNum, ch, val);
-      }
-  }
-
   // Read direct ADC pins (ADC32-37) 
   // ---------- Scan direct inputs 17-20 ----------
   for (uint8_t direct = 0; direct < 6; direct++) {
@@ -176,39 +176,23 @@ void scanADC() {
     }
       int val = analogRead(direct_adc_mapping[direct]);
 
-      if (val > 20) {
+      if (val > 25) {
           Serial.printf("%u\tDIRECT_PIN%u\t%d\n", inputNum, direct, val);
       }
       delayMicroseconds(50); 
   }
+  readHH1();
+  delay(10);
+  readHH2();
+  delay(10);
 
+  // Serial.printf("input: %u", mux1InputMap[0]);
 
 }
 
 
 void loop() {
     scanADC();
-
-    static unsigned long lastToggleTime = 0;
-    unsigned long currentTime = millis();
-
-    if (currentTime - lastToggleTime >= hihat_delay) {  // hihat_delay is 5000ms defined in adc_input_map.h
-        // Toggle HH1 mode and switch
-        HH1_mode = !HH1_mode;
-        digitalWrite(HIHAT_SWITCH_1, HH1_mode);
-
-        // Toggle HH2 mode and switch  
-        HH2_mode = !HH2_mode;
-        digitalWrite(HIHAT_SWITCH_2, HH2_mode);
-        Serial.printf("\n----------------Hihat mode: %d\n", HH1_mode);
-
-        lastToggleTime = currentTime;
-    }
-
-  // readHH1();
-  // delay(100);
-  // readHH2();
-  // delay(100);
 
 }
 
