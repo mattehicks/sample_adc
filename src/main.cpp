@@ -1,20 +1,74 @@
+#include <FastLED.h>
 #include <Arduino.h>
 #include <driver/adc.h>
-#include <FastLED.h>
+#include <driver/gpio.h>
+#include <esp_adc_cal.h>
 #include "adc_input_map.h"
+#include "input_config.h"
 
-#define NUM_LEDS 3
-#define LED_COMM_PIN 35
-#define LED_STATUS_PIN 36
-#define LED_POWER_PIN 37
-  
+// MIDI Serial pins
+#define RXD2 16
+#define TXD2 17
 
+// LED Configuration
+#define LED_PIN 37        // Pin connected to the LED
+#define NUM_LEDS 1        // Number of LEDs in the strip
+#define DELAY_TIME 5      // Delay time in milliseconds
+
+// New pin definitions
+#define OUTPUT_PIN 3      // Pin to set HIGH
+#define ANALOG_PIN 2      // Pin to read analog value from
+
+// MUX 1
+#define MUX1_S0 3
+#define MUX1_S1 4  
+#define MUX1_S2 6 
+#define MUX1_S3 5   
+
+// MUX2
+#define MUX2_S0 8  
+#define MUX2_S1 9 
+#define MUX2_S2 11
+#define MUX2_S3 10   
+
+// ADC read pins
+#define MUX1_ADC 2
+#define MUX2_ADC 7
+
+// Development board variables
+#define RXD2 2 // Dev board has no MIDI in but is used for the .begin serial command
+#define TXD2 26 // Dev board uses Arduino ESP32 Nano Pin D26 as MIDI Out
+
+int mux1Value = 0;
+int mux2Value = 0;
+
+// Arrays to store ADC readings for all channels
+int mux1Values[16] = {0};
+int mux2Values[16] = {0};
+unsigned long lastADCPrintTime = 0;
+
+// LED array
 CRGB leds[NUM_LEDS];
 
-//true for trigger mode.
-//false for high-hat mode.
-bool HH1_mode = false;
-bool HH2_mode = false;
+// Variable to store analog reading
+int analogValue = 0;
+
+void setupMuxPins() {
+  // Set all MUX control pins as outputs
+  pinMode(MUX1_S0, OUTPUT);
+  pinMode(MUX1_S1, OUTPUT);
+  pinMode(MUX1_S2, OUTPUT);
+  pinMode(MUX1_S3, OUTPUT);
+  
+  pinMode(MUX2_S0, OUTPUT);
+  pinMode(MUX2_S1, OUTPUT);
+  pinMode(MUX2_S2, OUTPUT);
+  pinMode(MUX2_S3, OUTPUT);
+  
+  // Set ADC pins as inputs
+  pinMode(MUX1_ADC, INPUT);
+  pinMode(MUX2_ADC, INPUT);
+}
 
 // Function to set MUX channel (0-15)
 void setMuxChannel(byte channel, byte s0, byte s1, byte s2, byte s3) {
@@ -24,175 +78,130 @@ void setMuxChannel(byte channel, byte s0, byte s1, byte s2, byte s3) {
   digitalWrite(s3, (channel & 8) ? HIGH : LOW);        // bit 3
 }
 
-void setup()    
-{
-    Serial.begin(115200);
-    // Setup LEDs
-    FastLED.addLeds<WS2812, LED_COMM_PIN, GRB>(leds, 0, 1);
-    FastLED.addLeds<WS2812, LED_STATUS_PIN, GRB>(leds, 1, 1);
-    FastLED.addLeds<WS2812, LED_POWER_PIN, GRB>(leds, 2, 1);
-    
-    // Set all LEDs to green
-    leds[0] = CRGB::Green;  // COMM LED
-    leds[1] = CRGB::Green;  // STATUS LED
-    leds[2] = CRGB::Green;  // POWER LED
-    FastLED.show();
-
-    // Configure select pins
-    pinMode(MUX1_S0, OUTPUT);
-    pinMode(MUX1_S1, OUTPUT);
-    pinMode(MUX1_S2, OUTPUT);
-    pinMode(MUX1_S3, OUTPUT);
-
-    pinMode(MUX2_S0, OUTPUT);
-    pinMode(MUX2_S1, OUTPUT);
-    pinMode(MUX2_S2, OUTPUT);
-    pinMode(MUX2_S3, OUTPUT);
-
-    //Hihat mode is trigger by outputting a low for high-hat mode or a HIGH for trigger mode.
-    pinMode(HIHAT_SWITCH_1, OUTPUT);
-    pinMode(HIHAT_SWITCH_2, OUTPUT);
-
-    //Hihat modes:  LOW for high-hat mode or HIGH for trigger mode.
-    digitalWrite(HIHAT_SWITCH_1, HH1_mode ? LOW : HIGH);
-    digitalWrite(HIHAT_SWITCH_2, HH2_mode ? LOW : HIGH);
-
-    // Configure direct ADC GPIOs as inputs (no pull-downs for raw testing)
-    pinMode(14, INPUT);  // Jack17 A
-    pinMode(12, INPUT);  // Jack17 B
-    pinMode(13, INPUT);  // Jack18 A
-    pinMode(15, INPUT);  // Jack19 B
-    pinMode(16, INPUT);  // Jack19 A
-    pinMode(18, INPUT);  // Jack20 single
-    pinMode(MUX1_ADC, INPUT);  // MUX1 ADC input
-    pinMode(MUX2_ADC, INPUT);  // MUX2 ADC input
-
-    // Configure ADC resolution and attenuation
-    adc1_config_width(ADC_WIDTH_BIT_12);
-    analogSetAttenuation(ADC_11db);
-}
- 
- //normalize the hihat input to a value between 0 and 1
-float normalizeADC(int pedalValue) { 
-  float normalized = (float)(pedalValue - 1500) / (3700 - 1500);
-  normalized = fmax(0.0f, fmin(1.0f, normalized));  // Clamp
-  return normalized;
+void sendMIDI(uint8_t channel, uint8_t note, uint8_t velocity) {
+    // MIDI Note On message: 0x90 + channel, note, velocity
+    Serial2.write(0x90 | (channel - 1));
+    Serial2.write(note);
+    Serial2.write(velocity);
 }
 
-void readHH1() {
-  //set the mux channel to input 2 (MUX1 channel 5)
-  setMuxChannel(HH1channel, MUX1_S0, MUX1_S1, MUX1_S2, MUX1_S3);
-  // Read the input
-  int val = analogRead(MUX1_ADC);
-  float normalized = normalizeADC(val);
-  
-  Serial.printf("\rHH1: %d (%.2f)    ", val, normalized);
-}
-
-void readHH2() {
-  //read direct ADC pin for hihat2
-  int val = analogRead(HH2channel);
-  float normalized = normalizeADC(val);
-  Serial.printf("HH2: %d (%.2f)    ", val, normalized);
-}
-// ADC to Input mapping lookup table
-String getInputLabel(int adcChannel) {
-    switch(adcChannel) {
-      case 0: return "Input 1, Ring, ADC0";
-      case 1: return "Input 1, Tip, ADC1";
-      case 2: return "Input 2, Mono, ADC2";
-      case 3: return "Input 4, Ring, ADC3";
-      case 4: return "Input 3, Ring, ADC4";
-      case 5: return "Input 4, Tip, ADC5";
-      case 6: return "Input 3, Tip, ADC6";
-      case 7: return "Input 6, Ring, ADC7";
-      case 8: return "Input 5, Ring, ADC8";
-      case 9: return "Input 6, Tip, ADC9";
-      case 10: return "Input 5, Tip, ADC10";
-      case 11: return "Input 8, Ring, ADC11";
-      case 12: return "Input 7, Ring, ADC12";
-      case 13: return "Input 8, Tip, ADC13";
-      case 14: return "Input 7, Tip, ADC14";
-      case 15: return "Input 10, Ring, ADC15";
-      case 16: return "Input 9, Ring, ADC16";
-      case 17: return "Input 10, Tip, ADC17";
-      case 18: return "Input 9, Tip, ADC18";
-      case 19: return "Input 12, Ring, ADC19";
-      case 20: return "Input 12, Tip, ADC20";
-      case 21: return "Input 11, Ring, ADC21";
-      case 22: return "Input 11, Tip, ADC22";
-      case 23: return "Input 14, Ring, ADC23";
-      case 24: return "Input 13, Ring, ADC24";
-      case 25: return "Input 14, Tip, ADC25";
-      case 26: return "Input 13, Tip, ADC26";
-      case 27: return "Input 16, Ring, ADC27";
-      case 28: return "Input 15, Ring, ADC28";
-      case 29: return "Input 16, Tip, ADC29";
-      case 30: return "Input 15, Tip, ADC30";
-      case 31: return "Input 18, Ring, ADC31";
-      case 32: return "Input 17, Ring, ADC32";
-      case 33: return "Input 18, Tip, ADC33";
-      case 34: return "Input 17, Tip, ADC34";
-      case 35: return "Input 19, Ring, ADC35";
-      case 36: return "Input 19, Tip, ADC36";
-      case 37: return "Input 20, Mono, ADC37";
-      default: return "Unknown ADC" + String(adcChannel);
-    }
-  }
- 
 void scanADC() {   
-int mux1_val;
-int mux2_val;
-
-  for (byte currentChannel = 0; currentChannel < 16; currentChannel++) {
-  static unsigned long scanStartTime = 0;
- 
-    // Set channel on both MUXes
-    setMuxChannel(currentChannel, MUX1_S0, MUX1_S1, MUX1_S2, MUX1_S3);
-    setMuxChannel(currentChannel, MUX2_S0, MUX2_S1, MUX2_S2, MUX2_S3);
-
-    // Read ADC values after a tiny delay to allow MUX to settle
-    delayMicroseconds(50); 
-    mux1_val = analogRead(MUX1_ADC);
-    mux2_val = analogRead(MUX2_ADC);
-
-    if (mux1_val > 25) {
-    Serial.printf("   ADC%d: %d\n",   mux1InputMap[currentChannel] , mux1_val);
-    }
-    if (mux2_val > 25) {
-    Serial.printf("   ADC%d: %d\n",   mux2InputMap[currentChannel] , mux2_val);
-    } 
+    static byte currentChannel = 0;   
+    static unsigned long scanStartTime = 0;      
     
-    // Move to next channel
-    // currentChannel = (currentChannel + 1) % 16;
-  }
-  // Read direct ADC pins (ADC32-37) 
-  // ---------- Scan direct inputs 17-20 ----------
-  for (uint8_t direct = 0; direct < 6; direct++) {
-    //skip the hihat channels
-    uint8_t inputNum = direct_adc_mapping[direct];
-    if (inputNum == HH2channel) {
-      continue;
-    }
-      int val = analogRead(direct_adc_mapping[direct]);
+    // Arrays to store all ADC values
+    static int adcValues[38]; // ADC0-ADC37
+    
+    // Scan all MUX channels quickly   
+    if (millis() - scanStartTime >= 5) {  // Small delay between channel changes     
+        scanStartTime = millis();          
+        
+   // Set channel on both MUXes     
+      setMuxChannel(currentChannel, MUX1_S0, MUX1_S1, MUX1_S2, MUX1_S3);     
+      setMuxChannel(currentChannel, MUX2_S0, MUX2_S1, MUX2_S2, MUX2_S3);          
+      
+      // Read ADC values after a tiny delay to allow MUX to settle     
+      delayMicroseconds(50);     
+      mux1Value = analogRead(MUX1_ADC);     
+      mux2Value = analogRead(MUX2_ADC);
+      
+        // Handle MUX1 triggered inputs
+        if (mux1Value > 10)  { 
+          //get midi properties from the (40 value) input array
+            const InputConfig& config = inputConfigs[mux1_mapping[currentChannel]];
+            uint8_t velocity = map(mux1Value, 0, 4095, 0, 127);
+            sendMIDI(config.channel, config.notePri, velocity);
 
-      if (val > 25) {
-          Serial.printf("%u\tDIRECT_PIN%u\t%d\n", inputNum, direct, val);
-      }
-      delayMicroseconds(50); 
-  }
-  readHH1();
-  delay(10);
-  readHH2();
-  delay(10);
+            //tip,ring labels from 16 values for mux1
+            String inputLabel = getInputLabel(mux1_mapping[currentChannel]);
+            Serial.println(inputLabel + " vel: " + String(velocity)); 
+        }
 
-  // Serial.printf("input: %u", mux1InputMap[0]);
+        // Handle MUX2 triggered inputs
+        if (mux2Value > 10)  {
+          //get midi properties from the (40 value) input array
+            const InputConfig& config = inputConfigs[mux2_mapping[currentChannel] + 16];
+            uint8_t velocity = map(mux2Value, 0, 4095, 0, 127);
+            sendMIDI(config.channel, config.notePri, velocity);
+
+            //tip,ring labels from 16 values for mux2
+            String inputLabel = getInputLabel(mux2_mapping[currentChannel]);
+            Serial.println(inputLabel + " vel: " + String(velocity));
+        }
+        
+        // Move to next channel     
+        currentChannel = (currentChannel + 1) % 16;   
+    }      
+    
+    // Read direct ADC pins (ADC32-37) every scan cycle
+    adcValues[32] = analogRead(12); // ADC32 = pin 12
+    adcValues[33] = analogRead(13); // ADC33 = pin 13
+    adcValues[34] = analogRead(14); // ADC34 = pin 14
+    adcValues[35] = analogRead(15); // ADC35 = pin 15
+    adcValues[36] = analogRead(16); // ADC36 = pin 16
+    adcValues[37] = analogRead(18); // ADC37 = pin 18
+
+//todo : print direct adc values somehow
+
 
 }
 
+void setup() {
+    // Initialize serial communication for debugging
+    Serial.begin(115200);  // Use Serial for debug output
+    
+    // Initialize MIDI serial communication on serial2
+    Serial2.begin(31250, SERIAL_8N1, RXD2, TXD2);
+
+    setupMuxPins(); // Setup MUX pins
+    
+    // Initialize FastLED
+    FastLED.addLeds<WS2812, LED_PIN, GRB>(leds, NUM_LEDS);
+
+    FastLED.setBrightness(0); // Start with brightness at 0
+    
+    // Configure ADC resolution and attenuation
+    analogReadResolution(12);  // Set ADC resolution to 12 bits
+    analogSetAttenuation(ADC_11db);  // Set attenuation to 11dB for full 0-3.3V range
+    
+    // Configure ADC pins
+    pinMode(MUX1_ADC, INPUT);
+    pinMode(MUX2_ADC, INPUT);
+    
+    // Configure direct ADC pins
+    pinMode(12, INPUT);  // ADC32
+    pinMode(13, INPUT);  // ADC33
+    pinMode(14, INPUT);  // ADC34
+    pinMode(15, INPUT);  // ADC35
+    pinMode(16, INPUT);  // ADC36
+    pinMode(18, INPUT);  // ADC37
+
+    Serial.println("Setup complete, pin 3 set HIGH");
+}
 
 void loop() {
-    scanADC();
+    static uint8_t brightness = 0;  // Current brightness level
+    static int8_t direction = 1;    // Direction of brightness change (+1 or -1)
+    static unsigned long lastUpdate = 0; // Last time brightness was updated
 
+    // Check if it's time to update the brightness
+    if (millis() - lastUpdate >= DELAY_TIME) {
+        lastUpdate = millis(); // Update the time
+
+        // Set the LED color to dark red with the current brightness
+        FastLED.setBrightness(brightness);
+        fill_solid(leds, NUM_LEDS, CRGB::DarkRed); // Set all LEDs to dark red
+        FastLED.show();
+
+        // Update brightness
+        brightness += direction;
+
+        // Reverse direction at max or min brightness
+        if (brightness == 0 || brightness == 255) {
+            direction = -direction;
+        }
+    }
+
+    scanADC(); // Call the function to scan ADC values
 }
 

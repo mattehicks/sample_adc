@@ -17,8 +17,11 @@ struct InputConfig {
     uint8_t duration;        // Minimum duration of trigger
 };
 
+
+//TODO: combine with ADC input map and muxX_mappings to infer if TIP/RING 
 // Define configuration for inputs 1–20
-const InputConfig inputConfigs[] = {
+// input, name, channel, notePri, noteSec, noteRim, threshold, sensitivity, debounce, duration
+ InputConfig inputConfigs[] = {
     { 1,  "HIHat",      1, 42, 0,  0,  5, 10, 0, 0 },
     { 2,  "HIHat_PDL",  1,  1, 0,  0,  5, 10, 0, 0 },
     { 3,  "Snare",      1, 38, 0, 40, 5, 10, 0, 0 },
@@ -38,7 +41,7 @@ const InputConfig inputConfigs[] = {
     {17,  "Pad17",      1, 66, 0,  0,  5, 10, 0, 0 },
     {18,  "Pad18",      1, 67, 0,  0,  5, 10, 0, 0 },
     {19,  "Pad19",      1, 68, 0,  0,  5, 10, 0, 0 },
-    {20,  "Hihat_PDL2", 1, 1, 0,  0,  5, 10, 0, 0 }
+    {20,  "Hihat_PDL2", 1, 1, 0,  0,  5, 10, 0, 0 },
 };
 
 const int INPUT_CONFIG_COUNT = sizeof(inputConfigs) / sizeof(InputConfig);
